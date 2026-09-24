@@ -253,10 +253,10 @@ body.selection-mode .card-body{cursor:pointer}
       </div>
       <div class="field">
         <label>GitHub Token</label>
-        <input id="tokenInput" type="password" value="" placeholder="github_pat_...">
+        <input id="tokenInput" type="password" placeholder="github_pat_...">
       </div>
       <div class="note">
-        Token 只存放在目前瀏覽器 sessionStorage。刪除圖片需要 Contents: Read and write 權限。
+        Token 只存放在這台裝置目前瀏覽器的 localStorage。刪除圖片需要 Contents: Read and write 權限。
       </div>
     </div>
     <div class="modal-foot">
@@ -271,10 +271,10 @@ body.selection-mode .card-body{cursor:pointer}
   const $ = id => document.getElementById(id);
 
   const state = {
-    owner: sessionStorage.getItem('imgmgr_owner') || 'leaf2019',
-    repo: sessionStorage.getItem('imgmgr_repo') || 'my-image-bed',
-    branch: sessionStorage.getItem('imgmgr_branch') || 'main',
-    token: sessionStorage.getItem('imgmgr_token') || '',
+    owner: localStorage.getItem('imgmgr_owner') || 'leaf2019',
+    repo: localStorage.getItem('imgmgr_repo') || 'my-image-bed',
+    branch: localStorage.getItem('imgmgr_branch') || 'main',
+    token: localStorage.getItem('imgmgr_token') || '',
     items: [],
     selected: new Set(),
     currentMonth: 'all',
@@ -865,10 +865,10 @@ body.selection-mode .card-body{cursor:pointer}
     state.branch = $('branchInput').value.trim() || 'main';
     state.token = $('tokenInput').value.trim();
 
-    sessionStorage.setItem('imgmgr_owner',state.owner);
-    sessionStorage.setItem('imgmgr_repo',state.repo);
-    sessionStorage.setItem('imgmgr_branch',state.branch);
-    sessionStorage.setItem('imgmgr_token',state.token);
+    localStorage.setItem('imgmgr_owner',state.owner);
+    localStorage.setItem('imgmgr_repo',state.repo);
+    localStorage.setItem('imgmgr_branch',state.branch);
+    localStorage.setItem('imgmgr_token',state.token);
 
     closeSettings();
     loadImages();
