@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image Bed Manager</title>
+<style>
+
+:root{
+  --bg:#0b0d10;
+  --panel:#13171c;
+  --panel-2:#0f1317;
+  --text:#c8cdd3;
+  --muted:#7c8692;
+  --line:#232a31;
+  --line2:#2d3640;
+  --danger:#ff6b6b;
+  --accent:#21c87a;
+  --accent-soft:rgba(33,200,122,.14);
+  --sidebar:220px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Arial,"Noto Sans TC","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--text)}
+button,input{font:inherit}
+a{color:inherit}
+.app{min-height:100vh;display:grid;grid-template-columns:var(--sidebar) 1fr}
+
+/* Sidebar */
+.sidebar{
+  position:fixed;inset:0 auto 0 0;width:var(--sidebar);
+  background:#0f1317;border-right:1px solid var(--line);
+  display:flex;flex-direction:column;z-index:10;
+  box-shadow:inset -1px 0 0 rgba(255,255,255,.02)
+}
+.brand{
+  padding:24px 20px 18px;font-weight:700;font-size:18px;border-bottom:1px solid var(--line);
+  color:#e8edf2
+}
+.nav{padding:12px 10px;overflow:auto;flex:1}
+.nav-title{padding:10px 10px 7px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.nav-btn{
+  width:100%;border:0;background:transparent;color:var(--text);text-align:left;
+  padding:9px 10px;border-radius:7px;cursor:pointer;display:flex;justify-content:space-between;gap:8px
+}
+.nav-btn:hover{background:#171d23}
+.nav-btn.active{background:#1a2026;color:#d3d8de;font-weight:600;box-shadow:inset 2px 0 0 #59636e}
+.nav-count{color:var(--muted);font-size:12px}
+.sidebar-bottom{padding:12px 10px;border-top:1px solid var(--line)}
+.sidebar-bottom button{
+  width:100%;padding:9px 10px;border:1px solid var(--line2);background:#12171c;color:var(--text);border-radius:7px;cursor:pointer
+}
+.sidebar-bottom button:hover{border-color:#4b5662;color:#e1e5ea}
+
+/* Main */
+.main{grid-column:2;min-width:0;padding:32px}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:18px}
+h1{font-size:28px;margin:0 0 5px;color:#edf2f7}
+.subtitle{color:var(--muted);font-size:13px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{
+  border:1px solid var(--line2);background:#14191f;color:var(--text);border-radius:7px;
+  padding:8px 12px;cursor:pointer;transition:.12s ease
+}
+.btn:hover{background:#171d23;border-color:#3a4652}
+.btn.primary{background:#2a3037;border-color:#3a424c;color:#c8cdd3;font-weight:700}
+.btn.primary:hover{background:#343b44;border-color:#46515d}
+.btn.danger{color:var(--danger)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* Selection bar */
+.selection-bar{
+  position:relative;display:none;align-items:center;justify-content:space-between;gap:14px;
+  background:var(--panel);border:1px solid var(--line);border-radius:9px;
+  padding:10px 12px;margin-bottom:16px;overflow:hidden
+}
+body.selection-mode .selection-bar{display:flex}
+.selection-left,.selection-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.checkline{display:flex;align-items:center;gap:8px;font-size:13px}
+.checkline input{width:16px;height:16px;accent-color:#6f7882}
+.selected-count{font-size:13px;color:#9aa3ad}
+
+.status{min-height:20px;color:var(--muted);margin-bottom:14px;font-size:13px}
+.status.err{color:var(--danger)}
+
+/* Day grouping */
+.day-group{margin:0 0 28px}
+.day-heading{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;margin:0 0 10px;padding:10px 12px;border:1px solid var(--line);
+  border-radius:10px;background:linear-gradient(180deg,#11161b 0%, #0f1317 100%)
+}
+.day-title{font-size:17px;font-weight:700;color:#edf2f7}
+.day-sub{font-size:12px;color:var(--muted)}
+.day-select{display:none;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+body.selection-mode .day-select{display:flex}
+.day-select input{width:15px;height:15px;accent-color:#6f7882}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
+  gap:16px
+}
+.card{
+  position:relative;background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;overflow:hidden;min-width:0;
+  transition:border-color .12s, box-shadow .12s, transform .12s
+}
+.card:hover{transform:translateY(-1px);border-color:#34404b}
+.card.selected{border-color:#7b8490;box-shadow:0 0 0 1px #7b8490;background:var(--panel)}
+.select-box{
+  position:absolute;top:9px;left:9px;z-index:2;
+  width:18px;height:18px;accent-color:#6f7882;display:none
+}
+body.selection-mode .select-box{display:block}
+.thumb{
+  width:100%;aspect-ratio:1/1;background:#0d1115;display:grid;place-items:center;overflow:hidden;
+  border-bottom:1px solid var(--line)
+}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.card-body{padding:11px}
+body.selection-mode .thumb,
+body.selection-mode .card-body{cursor:pointer}
+.detail-list{display:grid;gap:6px}
+.detail-row{
+  display:grid;
+  grid-template-columns:66px minmax(0,1fr);
+  gap:8px;
+  align-items:center;
+  font-size:12px;
+  line-height:1.35
+}
+.detail-label{color:var(--muted)}
+.detail-value{
+  color:#c7cdd3;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+.card-actions{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:10px}
+.card-actions button{
+  border:1px solid var(--line2);background:#14191f;color:var(--text);border-radius:6px;padding:7px 8px;cursor:pointer;font-size:12px
+}
+.card-actions button:hover{background:#192028;border-color:#415060}
+.card-actions .delete{color:var(--danger)}
+
+.empty{
+  display:none;padding:70px 20px;color:var(--muted);text-align:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px
+}
+.empty.show{display:block}
+
+/* Modal */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);
+  display:none;align-items:center;justify-content:center;z-index:50;padding:20px
+}
+.overlay.show{display:flex}
+.modal{
+  width:min(520px,100%);background:var(--panel-2);border-radius:12px;border:1px solid var(--line);
+  box-shadow:0 18px 50px rgba(0,0,0,.45)
+}
+.modal-head{padding:18px 20px;border-bottom:1px solid var(--line);font-weight:700;color:#edf2f7}
+.modal-body{padding:20px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.field input{width:100%;padding:9px 10px;border:1px solid var(--line2);border-radius:7px;background:#0b0f13;color:var(--text)}
+.field input:focus{outline:none;border-color:#59636e;box-shadow:0 0 0 3px rgba(120,130,140,.12)}
+.note{color:var(--muted);font-size:12px;line-height:1.55}
+.modal-foot{
+  padding:14px 20px;border-top:1px solid var(--line);
+  display:flex;justify-content:flex-end;gap:8px
+}
+
+@media(max-width:760px){
+  :root{--sidebar:170px}
+  .main{padding:22px 16px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  .selection-bar{align-items:flex-start;flex-direction:column}
+}
+
+</style>
+</head>
+<body>
+
+<div class="app" id="managerApp" style="visibility:hidden">
+  <aside class="sidebar">
+    <div class="brand">Image Manager</div>
+    <nav class="nav">
+      <div class="nav-title">Library</div>
+      <button class="nav-btn active" data-month="all">
+        <span>全部圖片</span>
+        <span class="nav-count" id="allCount">0</span>
+      </button>
+
+      <div class="nav-title">Months</div>
+      <div id="monthList"></div>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1 id="pageTitle">全部圖片</h1>
+        <div class="subtitle" id="pageSubtitle">依建立日期與時間排序</div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="selectionModeBtn">選擇</button>
+        <button class="btn" id="refreshBtn">重新整理</button>
+      </div>
+    </div>
+
+    <div class="selection-bar">
+      <div class="selection-left">
+        <label class="checkline">
+          <input type="checkbox" id="selectAll">
+          <span>全選目前畫面</span>
+        </label>
+        <button class="btn" id="clearSelection">取消選取</button>
+        <span class="selected-count" id="selectedCount">已選 0 張</span>
+      </div>
+      <div class="selection-right">
+        <button class="btn" id="copySelected">複製所選連結</button>
+        <button class="btn danger" id="deleteSelected">刪除所選</button>
+      </div>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <section id="groups"></section>
+    <div class="empty" id="empty">目前沒有圖片</div>
+  </main>
+</div>
+
+
+<div class="overlay show" id="loginOverlay">
+  <div class="modal">
+    <div class="modal-head">管理登入</div>
+    <div class="modal-body">
+      <div class="field">
+        <label>管理密碼</label>
+        <input id="adminPassword" type="password" autocomplete="current-password" placeholder="輸入管理密碼">
+      </div>
+      <div class="note" id="loginMessage">驗證成功後才會載入管理後台</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn primary" id="loginBtn">登入</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+
+  const WORKER_URL = 'https://my-image-bed-api.komican2012.workers.dev';
+
+  const state = {
+    items: [],
+    selected: new Set(),
+    currentMonth: 'all',
+    selectionMode: false,
+    adminSession: sessionStorage.getItem('imgmgr_admin_session') || ''
+  };
+
+  function adminHeaders(extra={}){
+    return state.adminSession
+      ? {'Authorization':'Bearer ' + state.adminSession, ...extra}
+      : {...extra};
+  }
+
+  function setStatus(text, type=''){
+    $('status').className = 'status' + (type ? ' ' + type : '');
+    $('status').textContent = text;
+  }
+
+
+  function isImage(path){
+    return /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i.test(path);
+  }
+
+  function getFilename(path){
+    return decodeURIComponent(path.split('/').pop());
+  }
+
+  function getMonth(path){
+    const first = path.split('/')[0];
+    if(/^\d{4}$/.test(first)) return first;   // YYMM
+    if(/^\d{6}$/.test(first)) return first;   // YYYYMM
+    return '其他';
+  }
+
+  function parseDateFromFilename(filename){
+    let m = filename.match(/^(\d{2})(\d{2})(\d{2})-(\d{2})\.(\d{2})\.(\d{2})-/);
+    if(m){
+      return {
+        year:2000+Number(m[1]),
+        month:Number(m[2]),
+        day:Number(m[3]),
+        hour:Number(m[4]),
+        minute:Number(m[5]),
+        second:Number(m[6])
+      };
+    }
+
+    m = filename.match(/^(\d{4})(\d{2})(\d{2})-(\d{2})\.(\d{2})\.(\d{2})-/);
+    if(m){
+      return {
+        year:Number(m[1]),
+        month:Number(m[2]),
+        day:Number(m[3]),
+        hour:Number(m[4]),
+        minute:Number(m[5]),
+        second:Number(m[6])
+      };
+    }
+
+    return null;
+  }
+
+  function timestampOf(parts){
+    if(!parts) return 0;
+    return new Date(
+      parts.year,
+      parts.month-1,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second
+    ).getTime();
+  }
+
+  function dateKeyOf(parts){
+    if(!parts) return 'unknown';
+    return `${parts.year}-${String(parts.month).padStart(2,'0')}-${String(parts.day).padStart(2,'0')}`;
+  }
+
+  function timeLabelOf(parts){
+    if(!parts) return '時間未知';
+    return `${String(parts.hour).padStart(2,'0')}:${String(parts.minute).padStart(2,'0')}:${String(parts.second).padStart(2,'0')}`;
+  }
+
+  function dateLabelOf(parts){
+    if(!parts) return '日期未知';
+    return `${parts.month}月${parts.day}日`;
+  }
+
+  function fullDateLabelOf(parts){
+    if(!parts) return '日期未知';
+    return `${parts.year}年${parts.month}月${parts.day}日`;
+  }
+
+
+  function createdLabelOf(parts){
+    if(!parts) return '時間未知';
+    return `${parts.year}/${String(parts.month).padStart(2,'0')}/${String(parts.day).padStart(2,'0')} ${String(parts.hour).padStart(2,'0')}:${String(parts.minute).padStart(2,'0')}:${String(parts.second).padStart(2,'0')}`;
+  }
+
+  function humanFileSize(bytes){
+    if(!Number.isFinite(bytes)) return '未知';
+    if(bytes < 1024) return `${bytes} B`;
+    if(bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  }
+
+  function imageFormatOf(filename){
+    const m = filename.match(/\.([^.]+)$/);
+    return m ? m[1].toUpperCase() : '未知';
+  }
+
+
+
+  function monthLabel(m){
+    if(/^\d{4}$/.test(m)) return `${m.slice(0,2)}/${m.slice(2,4)}`;
+    if(/^\d{6}$/.test(m)) return `${m.slice(0,4)}/${m.slice(4,6)}`;
+    return m;
+  }
+
+  function visibleItems(){
+    return state.currentMonth === 'all'
+      ? state.items
+      : state.items.filter(x => x.month === state.currentMonth);
+  }
+
+  async function loadImages(){
+    setStatus('讀取圖片中…');
+    $('groups').innerHTML = '';
+    $('empty').classList.remove('show');
+    state.selected.clear();
+    updateSelectionUI();
+
+    try{
+      const res = await fetch(WORKER_URL + '/images', {
+        headers: adminHeaders()
+      });
+      const data = await res.json().catch(()=>({}));
+
+      if(res.status === 401){
+        logoutToLogin('登入已失效，請重新輸入管理密碼');
+        return;
+      }
+      if(!res.ok || !data.ok){
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+
+      state.items = (data.images || [])
+        .filter(x => isImage(x.path))
+        .map(x => {
+          const filename = getFilename(x.path);
+          const parts = parseDateFromFilename(filename);
+          return {
+            path:x.path,
+            sha:x.sha,
+            size:x.size,
+            filename,
+            month:getMonth(x.path),
+            parts,
+            timestamp:timestampOf(parts),
+            dateKey:dateKeyOf(parts),
+            timeLabel:timeLabelOf(parts),
+            url:x.url
+          };
+        })
+        .sort((a,b) => {
+          if(a.timestamp !== b.timestamp) return b.timestamp - a.timestamp;
+          return b.filename.localeCompare(a.filename,'zh-Hant');
+        });
+
+      renderMonths();
+      renderCurrent();
+      setStatus(`已載入 ${state.items.length} 張圖片`);
+
+    }catch(err){
+      setStatus('讀取失敗：' + (err.message || err), 'err');
+    }
+  }
+
+  function renderMonths(){
+    const counts = {};
+    for(const item of state.items){
+      counts[item.month] = (counts[item.month] || 0) + 1;
+    }
+
+    $('allCount').textContent = state.items.length;
+    $('monthList').innerHTML = '';
+
+    const months = Object.keys(counts).sort((a,b) => {
+      if(a === '其他') return 1;
+      if(b === '其他') return -1;
+      return b.localeCompare(a);
+    });
+
+    for(const month of months){
+      const btn = document.createElement('button');
+      btn.className = 'nav-btn' + (state.currentMonth === month ? ' active' : '');
+      btn.dataset.month = month;
+      btn.innerHTML = `<span>${monthLabel(month)}</span><span class="nav-count">${counts[month]}</span>`;
+      btn.addEventListener('click',()=>setMonth(month));
+      $('monthList').appendChild(btn);
+    }
+
+    document.querySelector('[data-month="all"]')
+      .classList.toggle('active',state.currentMonth === 'all');
+  }
+
+  function setMonth(month){
+    state.currentMonth = month;
+    state.selected.clear();
+    renderMonths();
+    renderCurrent();
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  function renderCurrent(){
+    const items = visibleItems();
+
+    $('pageTitle').textContent =
+      state.currentMonth === 'all' ? '全部圖片' : monthLabel(state.currentMonth);
+
+    $('pageSubtitle').textContent =
+      `${items.length} 張 · 同一天自動分組 · 依時間由新到舊`;
+
+    $('groups').innerHTML = '';
+
+    if(items.length === 0){
+      $('empty').classList.add('show');
+      updateSelectionUI();
+      return;
+    }
+
+    $('empty').classList.remove('show');
+
+    const groups = new Map();
+    for(const item of items){
+      const key = item.dateKey;
+      if(!groups.has(key)) groups.set(key,[]);
+      groups.get(key).push(item);
+    }
+
+    for(const [key,groupItems] of groups){
+      const group = document.createElement('section');
+      group.className = 'day-group';
+
+      const heading = document.createElement('div');
+      heading.className = 'day-heading';
+
+      const left = document.createElement('div');
+      const title = document.createElement('div');
+      title.className = 'day-title';
+
+      const sample = groupItems[0];
+      title.textContent = sample.parts ? dateLabelOf(sample.parts) : '日期未知';
+
+      const sub = document.createElement('div');
+      sub.className = 'day-sub';
+      sub.textContent = sample.parts
+        ? `${fullDateLabelOf(sample.parts)} · ${groupItems.length} 張`
+        : `${groupItems.length} 張`;
+
+      left.append(title,sub);
+
+      const daySelectLabel = document.createElement('label');
+      daySelectLabel.className = 'day-select';
+
+      const dayCheck = document.createElement('input');
+      dayCheck.type = 'checkbox';
+
+      const allSelected = groupItems.every(x => state.selected.has(x.path));
+      const someSelected = groupItems.some(x => state.selected.has(x.path));
+      dayCheck.checked = allSelected;
+      dayCheck.indeterminate = !allSelected && someSelected;
+
+      dayCheck.addEventListener('change',()=>{
+        if(dayCheck.checked){
+          groupItems.forEach(x=>state.selected.add(x.path));
+        }else{
+          groupItems.forEach(x=>state.selected.delete(x.path));
+        }
+        renderCurrent();
+      });
+
+      const daySelectText = document.createElement('span');
+      daySelectText.textContent = '選取這一天';
+
+      daySelectLabel.append(dayCheck,daySelectText);
+      heading.append(left,daySelectLabel);
+
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+
+      for(const item of groupItems){
+        grid.appendChild(makeCard(item));
+      }
+
+      group.append(heading,grid);
+      $('groups').appendChild(group);
+    }
+
+    updateSelectionUI();
+  }
+
+  function toggleItemSelection(item){
+    if(state.selected.has(item.path)) state.selected.delete(item.path);
+    else state.selected.add(item.path);
+    renderCurrent();
+  }
+
+  function makeCard(item){
+    const card = document.createElement('article');
+    card.className = 'card' + (state.selected.has(item.path) ? ' selected' : '');
+
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.className = 'select-box';
+    check.checked = state.selected.has(item.path);
+    check.addEventListener('click',e=>e.stopPropagation());
+    check.addEventListener('change',()=>{
+      if(!state.selectionMode) return;
+      if(check.checked) state.selected.add(item.path);
+      else state.selected.delete(item.path);
+      renderCurrent();
+    });
+
+    const thumb = document.createElement('a');
+    thumb.className = 'thumb';
+    thumb.href = item.url;
+    thumb.target = '_blank';
+    thumb.rel = 'noopener';
+
+    thumb.addEventListener('click',e=>{
+      if(state.selectionMode){
+        e.preventDefault();
+        e.stopPropagation();
+        toggleItemSelection(item);
+      }
+    });
+
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.src = item.url;
+    img.alt = item.filename;
+    thumb.appendChild(img);
+
+    const body = document.createElement('div');
+    body.className = 'card-body';
+
+    body.addEventListener('click',e=>{
+      if(!state.selectionMode) return;
+      if(e.target.closest('button') || e.target.closest('input')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleItemSelection(item);
+    });
+
+    const details = document.createElement('div');
+    details.className = 'detail-list';
+
+    function addDetail(labelText,valueText,valueClass=''){
+      const row = document.createElement('div');
+      row.className = 'detail-row';
+
+      const label = document.createElement('div');
+      label.className = 'detail-label';
+      label.textContent = labelText;
+
+      const value = document.createElement('div');
+      value.className = 'detail-value' + (valueClass ? ' ' + valueClass : '');
+      value.textContent = valueText;
+
+      row.append(label,value);
+      details.appendChild(row);
+      return value;
+    }
+
+    addDetail('檔案大小', humanFileSize(item.size));
+    addDetail('建立時間', createdLabelOf(item.parts));
+    const dimensionValue = addDetail('圖片尺寸', '讀取中…');
+    addDetail('圖片格式', imageFormatOf(item.filename));
+
+    img.addEventListener('load',()=>{
+      dimensionValue.textContent = `${img.naturalWidth} × ${img.naturalHeight}`;
+    }, {once:true});
+
+    img.addEventListener('error',()=>{
+      dimensionValue.textContent = '讀取失敗';
+    }, {once:true});
+
+    if(img.complete && img.naturalWidth){
+      dimensionValue.textContent = `${img.naturalWidth} × ${img.naturalHeight}`;
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'card-actions';
+    actions.addEventListener('click',e=>e.stopPropagation());
+
+    const copy = document.createElement('button');
+    copy.textContent = '複製連結';
+    copy.addEventListener('click',async e=>{
+      e.stopPropagation();
+      await navigator.clipboard.writeText(item.url);
+      const old = copy.textContent;
+      copy.textContent = '已複製';
+      setTimeout(()=>copy.textContent=old,800);
+    });
+
+    const del = document.createElement('button');
+    del.textContent = '刪除';
+    del.className = 'delete';
+    del.addEventListener('click',e=>{
+      e.stopPropagation();
+      deleteImages([item]);
+    });
+
+    actions.append(copy,del);
+    body.append(details,actions);
+    card.append(check,thumb,body);
+
+    return card;
+  }
+
+  function setSelectionMode(enabled){
+    state.selectionMode = enabled;
+    document.body.classList.toggle('selection-mode', enabled);
+    $('selectionModeBtn').textContent = enabled ? '完成' : '選擇';
+
+    if(!enabled){
+      state.selected.clear();
+      renderCurrent();
+    }else{
+      updateSelectionUI();
+    }
+  }
+
+  function updateSelectionUI(){
+    const visible = visibleItems();
+    const visibleSelected = visible.filter(x=>state.selected.has(x.path));
+
+    $('selectedCount').textContent = `已選 ${state.selected.size} 張`;
+
+    const all = visible.length > 0 && visibleSelected.length === visible.length;
+    const some = visibleSelected.length > 0 && !all;
+
+    $('selectAll').checked = all;
+    $('selectAll').indeterminate = some;
+
+    $('copySelected').disabled = state.selected.size === 0;
+    $('deleteSelected').disabled = state.selected.size === 0;
+    $('clearSelection').disabled = state.selected.size === 0;
+  }
+
+  $('selectionModeBtn').addEventListener('click',()=>{
+    setSelectionMode(!state.selectionMode);
+  });
+
+  $('selectAll').addEventListener('change',()=>{
+    const visible = visibleItems();
+
+    if($('selectAll').checked){
+      visible.forEach(x=>state.selected.add(x.path));
+    }else{
+      visible.forEach(x=>state.selected.delete(x.path));
+    }
+
+    renderCurrent();
+  });
+
+  $('clearSelection').addEventListener('click',()=>{
+    state.selected.clear();
+    renderCurrent();
+  });
+
+  $('copySelected').addEventListener('click',async()=>{
+    const selectedItems = state.items.filter(x=>state.selected.has(x.path));
+    const text = selectedItems.map(x=>x.url).join('\n');
+    if(!text) return;
+
+    await navigator.clipboard.writeText(text);
+    setStatus(`已複製 ${selectedItems.length} 個圖片連結`);
+  });
+
+  $('deleteSelected').addEventListener('click',()=>{
+    const selectedItems = state.items.filter(x=>state.selected.has(x.path));
+    deleteImages(selectedItems);
+  });
+
+  async function deleteImages(items){
+    if(items.length === 0) return;
+
+    const ok = confirm(
+      `確定刪除 ${items.length} 張圖片？\n\n這會直接從 GitHub repo 刪除所選檔案`
+    );
+    if(!ok) return;
+
+    let success = 0;
+    let failed = 0;
+
+    for(let i=0;i<items.length;i++){
+      const item = items[i];
+      setStatus(`刪除中 ${i+1}/${items.length}：${item.filename}`);
+
+      try{
+        const res = await fetch(WORKER_URL + '/image', {
+          method:'DELETE',
+          headers:adminHeaders({'Content-Type':'application/json'}),
+          body:JSON.stringify({path:item.path})
+        });
+        const data = await res.json().catch(()=>({}));
+
+        if(res.status === 401){
+          logoutToLogin('登入已失效，請重新輸入管理密碼');
+          return;
+        }
+        if(!res.ok || !data.ok){
+          throw new Error(data.error || `HTTP ${res.status}`);
+        }
+
+        success++;
+        state.items = state.items.filter(x=>x.path !== item.path);
+        state.selected.delete(item.path);
+
+      }catch(err){
+        failed++;
+        console.error(err);
+      }
+    }
+
+    renderMonths();
+    renderCurrent();
+
+    if(failed){
+      setStatus(`刪除完成：成功 ${success} 張，失敗 ${failed} 張`,'err');
+    }else{
+      setStatus(`已刪除 ${success} 張圖片`);
+    }
+  }
+
+  function showManager(){
+    $('loginOverlay').classList.remove('show');
+    $('managerApp').style.visibility = 'visible';
+  }
+
+  function logoutToLogin(message='請輸入管理密碼'){
+    state.adminSession = '';
+    sessionStorage.removeItem('imgmgr_admin_session');
+    $('managerApp').style.visibility = 'hidden';
+    $('loginMessage').textContent = message;
+    $('loginOverlay').classList.add('show');
+  }
+
+  async function login(){
+    const password = $('adminPassword').value;
+    if(!password){
+      $('loginMessage').textContent = '請輸入管理密碼';
+      return;
+    }
+
+    $('loginBtn').disabled = true;
+    $('loginMessage').textContent = '驗證中…';
+
+    try{
+      const res = await fetch(WORKER_URL + '/admin/login', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({password})
+      });
+      const data = await res.json().catch(()=>({}));
+
+      if(!res.ok || !data.ok || !data.token){
+        $('loginMessage').textContent = data.error || '管理密碼錯誤';
+        return;
+      }
+
+      state.adminSession = data.token;
+      sessionStorage.setItem('imgmgr_admin_session', data.token);
+      $('adminPassword').value = '';
+      showManager();
+      await loadImages();
+
+    }catch(err){
+      $('loginMessage').textContent = '登入失敗：' + (err.message || err);
+    }finally{
+      $('loginBtn').disabled = false;
+    }
+  }
+
+  async function verifyExistingSession(){
+    if(!state.adminSession){
+      logoutToLogin();
+      return;
+    }
+
+    try{
+      const res = await fetch(WORKER_URL + '/admin/check', {
+        headers:adminHeaders()
+      });
+      const data = await res.json().catch(()=>({}));
+      if(res.ok && data.ok){
+        showManager();
+        await loadImages();
+      }else{
+        logoutToLogin('登入已失效，請重新輸入管理密碼');
+      }
+    }catch(_){
+      logoutToLogin('連線失敗，請重新登入');
+    }
+  }
+
+  $('loginBtn').addEventListener('click',login);
+  $('adminPassword').addEventListener('keydown',e=>{
+    if(e.key === 'Enter') login();
+  });
+
+  $('refreshBtn').addEventListener('click',loadImages);
+
+  document.querySelector('[data-month="all"]').addEventListener('click',()=>setMonth('all'));
+  verifyExistingSession();
+})();
+</script>
+</body>
+</html>
